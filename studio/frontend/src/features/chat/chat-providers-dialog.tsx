@@ -336,6 +336,7 @@ export function ChatProvidersSettings({
   // Opt-in site icon draft; only persisted for custom providers via the backend favicon endpoint.
   const [faviconDataUrlDraft, setFaviconDataUrlDraft] = useState<string | null>(null);
   const [fetchingSiteIcon, setFetchingSiteIcon] = useState(false);
+  const [requestUsage, setRequestUsage] = useState(false);
   const isAccountOwner = useIsAccountOwner();
   const loginMode = useLoginMode();
   const modelFieldsAtOpenRef = useRef<string | null>(null);
@@ -541,6 +542,7 @@ export function ChatProvidersSettings({
     setExtraHeadersDraft("");
     setApiType("chat_completions");
     setReasoningConfig(null);
+    setRequestUsage(false);
     setEditingBackendProviderType(null);
     const entry = registryByType.get(providerType);
     if (!entry) {
@@ -668,6 +670,7 @@ export function ChatProvidersSettings({
     setSharedDraft(false);
     setFaviconDataUrlDraft(null);
     setFetchingSiteIcon(false);
+    setRequestUsage(false);
     modelFieldsAtOpenRef.current = null;
   }
 
@@ -1060,6 +1063,7 @@ export function ChatProvidersSettings({
         faviconDataUrl: isCustomProvider ? faviconDataUrlDraft : undefined,
         extraHeaders,
         ...(showShareToggle && sharedDraft ? { shared: true } : {}),
+        ...(showCustomReasoning && requestUsage ? { requestUsage: true } : {}),
         apiKey: apiKey.trim(),
 
       });
@@ -1089,6 +1093,9 @@ export function ChatProvidersSettings({
           ? normalizeCustomReasoningConfig(created.reasoning_config)
           : undefined,
         faviconDataUrl: created.favicon_data_url ?? undefined,
+        requestUsage: created.provider_type === "custom"
+          ? created.request_usage === true
+          : undefined,
 
         hasApiKey: created.has_api_key,
         shared: created.shared === true,
@@ -1246,6 +1253,9 @@ export function ChatProvidersSettings({
         ...(showShareToggle && sharedDraft !== (existing.shared === true)
           ? { shared: sharedDraft }
           : {}),
+        ...(showCustomReasoning && requestUsage !== (existing.requestUsage === true)
+          ? { requestUsage }
+          : {}),
         ...(credentialEdit.action === "replace"
           ? { apiKey: credentialEdit.apiKey }
           : credentialEdit.action === "clear"
@@ -1280,6 +1290,9 @@ export function ChatProvidersSettings({
           ? normalizeCustomReasoningConfig(updated.reasoning_config)
           : undefined,
         faviconDataUrl: updated.favicon_data_url ?? undefined,
+        requestUsage: updated.provider_type === "custom"
+          ? updated.request_usage === true
+          : undefined,
 
         hasApiKey: updated.has_api_key,
         shared: updated.shared === true,
@@ -1391,6 +1404,7 @@ export function ChatProvidersSettings({
     setSharedDraft(provider.shared === true);
     setFaviconDataUrlDraft(provider.faviconDataUrl ?? null);
     setFetchingSiteIcon(false);
+    setRequestUsage(provider.requestUsage === true);
     modelFieldsAtOpenRef.current = null;
     setApiType(
       provider.decisionsOnly ? "systemone" : (provider.apiType ?? "chat_completions"),
@@ -2113,6 +2127,31 @@ export function ChatProvidersSettings({
                     </div>
                   ) : null}
                 </>
+              ) : null}
+              {showCustomReasoning ? (
+                <div className="flex items-start justify-between gap-4 px-4 py-3">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="provider-request-usage"
+                      className="text-sm font-medium"
+                    >
+                      {t("settings.apiKeys.requestUsage.label")}
+                    </Label>
+                    <p
+                      id="provider-request-usage-help"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t("settings.apiKeys.requestUsage.description")}
+                    </p>
+                  </div>
+                  <Switch
+                    className="mt-[var(--ui-title-cap-inset)]"
+                    id="provider-request-usage"
+                    checked={requestUsage}
+                    onCheckedChange={setRequestUsage}
+                    aria-describedby="provider-request-usage-help"
+                  />
+                </div>
               ) : null}
               {showReasoningToggle ? (
                 <div className="grid grid-cols-[minmax(140px,0.8fr)_minmax(0,1.2fr)] items-center gap-4 px-4 py-3 @max-[520px]:grid-cols-1">
