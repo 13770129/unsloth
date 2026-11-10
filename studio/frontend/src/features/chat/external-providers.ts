@@ -673,6 +673,7 @@ function normalizeProvider(raw: ExternalProviderConfig): ExternalProviderConfig 
     maxOutputTokens: normalizeProviderMaxOutputTokens(raw.maxOutputTokens),
     faviconDataUrl: isProviderFaviconDataUrl(raw.faviconDataUrl)
       ? raw.faviconDataUrl
+      : undefined,
     diffusionStreaming: supportsDiffusionStreaming(providerType)
       ? raw.diffusionStreaming === true
       : undefined,

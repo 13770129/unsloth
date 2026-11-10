@@ -2172,6 +2172,8 @@ export function ChatProvidersSettings({
                     onCheckedChange={setRequestUsage}
                     aria-describedby="provider-request-usage-help"
                   />
+                </div>
+              ) : null}
               {showDiffusionStreaming ? (
                 <div className="grid grid-cols-[minmax(140px,0.8fr)_minmax(0,1.2fr)] items-start gap-4 px-4 py-3 @max-[520px]:grid-cols-1">
                   <div className="flex min-w-0 flex-col gap-0.5">
