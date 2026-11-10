@@ -60,6 +60,7 @@ export interface ProviderConfig {
   shared?: boolean;
   request_usage?: boolean;
   shared_by_owner?: boolean;
+  diffusion_streaming?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -232,6 +233,7 @@ export async function createProviderConfig(payload: {
   extraHeaders?: Record<string, string>;
   shared?: boolean;
   requestUsage?: boolean;
+  diffusionStreaming?: boolean;
   apiKey?: string;
 }): Promise<ProviderConfig> {
   return withApiKeyEncryptionRetry(payload.apiKey ?? "", async (encryptedApiKey) => {
@@ -261,6 +263,9 @@ export async function createProviderConfig(payload: {
         ...(payload.requestUsage === undefined
           ? {}
           : { request_usage: payload.requestUsage }),
+        ...(payload.diffusionStreaming === undefined
+          ? {}
+          : { diffusion_streaming: payload.diffusionStreaming }),
         encrypted_api_key: encryptedApiKey,
       }),
     });
@@ -297,6 +302,7 @@ export async function updateProviderConfig(
     extraHeaders?: Record<string, string>;
     shared?: boolean;
     requestUsage?: boolean;
+    diffusionStreaming?: boolean;
     apiKey?: string;
     clearApiKey?: boolean;
   },
@@ -330,6 +336,9 @@ export async function updateProviderConfig(
         ...(payload.requestUsage === undefined
           ? {}
           : { request_usage: payload.requestUsage }),
+        ...(payload.diffusionStreaming === undefined
+          ? {}
+          : { diffusion_streaming: payload.diffusionStreaming }),
         ...(payload.apiKey === undefined ? {} : { encrypted_api_key: encryptedApiKey }),
         ...(payload.clearApiKey === undefined ? {} : { clear_api_key: payload.clearApiKey }),
       }),

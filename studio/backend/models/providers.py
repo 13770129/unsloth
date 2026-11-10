@@ -195,6 +195,10 @@ class ProviderCreate(ExtraHeadersMixin):
 
     api_type: ProviderApiType = "chat_completions"
     reasoning_config: Optional[ProviderReasoningConfig] = None
+    diffusion_streaming: bool = Field(
+        False,
+        description = "Enable Inception Labs Mercury diffusion streaming (denoised full-text chunks) for this connection.",
+    )
 
     favicon_data_url: Optional[str] = Field(
         None,
@@ -244,6 +248,10 @@ class ProviderUpdate(ExtraHeadersMixin):
 
     api_type: Optional[ProviderApiType] = None
     reasoning_config: Optional[ProviderReasoningConfig] = None
+    diffusion_streaming: Optional[bool] = Field(
+        None,
+        description = "Enable or disable Inception Labs Mercury diffusion streaming.",
+    )
 
     favicon_data_url: Optional[str] = Field(
         None,
@@ -301,6 +309,10 @@ class ProviderResponse(BaseModel):
 
     api_type: ProviderApiType = "chat_completions"
     reasoning_config: Optional[ProviderReasoningConfig] = None
+    diffusion_streaming: bool = Field(
+        False,
+        description = "Whether this connection uses Inception Labs Mercury diffusion streaming.",
+    )
 
     favicon_data_url: Optional[str] = Field(
         None,

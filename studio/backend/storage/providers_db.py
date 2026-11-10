@@ -171,6 +171,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE llm_providers ADD COLUMN request_usage INTEGER NOT NULL DEFAULT 0"
         )
+    if "diffusion_streaming" not in existing_cols:
+        conn.execute(
+            "ALTER TABLE llm_providers ADD COLUMN diffusion_streaming INTEGER NOT NULL DEFAULT 0"
+        )
     # ALTER TABLE persists independently in SQLite, but its one-time data migration does not.
     conn.commit()
 
@@ -233,6 +237,7 @@ def create_provider(
     extra_headers: Optional[dict] = None,
     shared: bool = False,
     request_usage: bool = False,
+    diffusion_streaming: bool = False,
 ) -> None:
     """Insert a new provider configuration."""
     reasoning_json = _encode_reasoning_config(reasoning_config)
@@ -246,7 +251,7 @@ def create_provider(
                 id, provider_type, display_name, base_url,
                 models_json, available_models_json, max_output_tokens, api_type,
                 reasoning_config_json, extra_headers_json, shared, favicon_data_url,
-                request_usage, created_at, updated_at
+                request_usage, diffusion_streaming, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -264,6 +269,7 @@ def create_provider(
                 1 if shared else 0,
                 favicon_data_url,
                 1 if request_usage else 0,
+                1 if diffusion_streaming else 0,
                 now,
                 now,
             ),
@@ -289,6 +295,7 @@ def update_provider(
     extra_headers: dict | None | object = _UNSET,
     shared: bool | None = None,
     request_usage: bool | None = None,
+    diffusion_streaming: bool | None = None,
 ) -> bool:
     """Update fields on an existing provider. Returns True if a row was updated."""
     updates = []
@@ -329,6 +336,9 @@ def update_provider(
     if request_usage is not None:
         updates.append("request_usage = ?")
         params.append(1 if request_usage else 0)
+    if diffusion_streaming is not None:
+        updates.append("diffusion_streaming = ?")
+        params.append(1 if diffusion_streaming else 0)
     if not updates:
         return False
     updates.append("updated_at = ?")
@@ -370,6 +380,7 @@ def _row_to_provider(row: sqlite3.Row) -> dict:
     data["available_models"] = available_models
     data["shared"] = bool(data.get("shared"))
     data["request_usage"] = bool(data.get("request_usage"))
+    data["diffusion_streaming"] = bool(data.get("diffusion_streaming"))
     return data
 
 

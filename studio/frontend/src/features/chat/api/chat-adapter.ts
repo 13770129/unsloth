@@ -99,6 +99,7 @@ import {
   mcpUiReplayImages,
 } from "../mcp-apps/mcp-ui";
 import { isMcpToolName } from "../utils/mcp-tool-name";
+import { createDiffusionReplace } from "../utils/diffusion-replace";
 import { userMessageIdRequestField } from "../utils/rewind";
 import {
   type McpImage,
@@ -5853,6 +5854,20 @@ export function createOpenAIStreamAdapter(
         thinkTags.append(text);
         placeholderWatch.append(text);
       };
+      // Mercury diffusion streaming: the turn's latest full-text snapshot and where it starts in the buffer.
+      const diffusion = createDiffusionReplace();
+      // Swaps the snapshot in place of the previous one; only diffusion arrivals pay the copy.
+      const replaceDiffusionSnapshot = (text: string): boolean => {
+        const cut = diffusion.cutAt(cumulativeText.length, text);
+        if (cut === null) return false;
+        cumulativeText = cumulativeText.slice(0, cut);
+        thinkTags.retract(cumulativeText);
+        placeholderWatch.retract(cumulativeText);
+        // A fresh parse rebuilds from the buffer, since the text no longer only grows.
+        segmentedText = createSegmentedAssistantText({ trustAppends, parseThink });
+        appendCumulative(text);
+        return true;
+      };
       // A resumed turn starts with the partial already in the buffer; one read of it puts the trackers in step.
       if (cumulativeText) {
         thinkTags.append(cumulativeText);
@@ -6919,6 +6934,11 @@ export function createOpenAIStreamAdapter(
               isPromptCacheTtl(externalProvider.promptCacheTtl)
                 ? { prompt_cache_ttl: externalProvider.promptCacheTtl }
                 : {}),
+              // Inception Labs Mercury diffusion streaming: backend forwards `diffusing: true`
+              // to the provider (requires stream=true) and relays full-text `_diffusionReplace` snapshots.
+              ...(externalProvider.diffusionStreaming === true
+                ? { diffusing: true }
+                : {}),
               // Anthropic fast mode (Opus 4.6 / 4.7 only); the backend drops it on unsupported models as a backstop.
               ...(params.fastMode &&
               providerSupportsFastMode(
@@ -7250,6 +7270,7 @@ export function createOpenAIStreamAdapter(
                 // Only-disabled rounds emit no card and upstream [DONE] has no finish_reason.
                 if (!toolStatusText) {
                   endProviderTurn();
+                  diffusion.endTurn();
                 }
                 runtime.setToolStatus(
                   liveThreadKey(serverCancel),
@@ -7405,6 +7426,8 @@ export function createOpenAIStreamAdapter(
                 // tools run inside the turn.
                 if (!chunk.choices && toolEvent.tool_name !== "studio_load_skill") {
                   endProviderTurn();
+                  // The next provider turn's snapshots must not overwrite this turn's text.
+                  diffusion.endTurn();
                 }
                 // Deep Research is an ordinary tool to every loop that runs it, so the handoff is read off the
                 // shared events. An ungated pair is not rendered: the research card is the reply.
@@ -7978,7 +8001,14 @@ export function createOpenAIStreamAdapter(
                   }
                 }
               }
-              const rawDelta = chunk.choices?.[0]?.delta?.content;
+              // Mercury diffusion streaming: the server's full-text-so-far snapshot of the reply.
+              const diffusionReplace = (
+                chunk as { _diffusionReplace?: unknown }
+              )._diffusionReplace;
+              const rawDelta =
+                typeof diffusionReplace === "string"
+                  ? diffusionReplace
+                  : chunk.choices?.[0]?.delta?.content;
               // Normalize structured delta.content (mistral magistral).
               const {
                 text: delta,
@@ -8561,6 +8591,8 @@ export function createOpenAIStreamAdapter(
               }
               // So a chunk that added nothing can be told from one that did.
               const textLenBeforeChunk = cumulativeText.length;
+              // A same-length rewrite is still new text.
+              let rewroteText = false;
               if (waitingFirstChunk) {
                 waitingFirstChunk = false;
                 firstTokenTime = Date.now() - streamStartTime;
@@ -8584,7 +8616,15 @@ export function createOpenAIStreamAdapter(
                 if (reasoningContentOpen) {
                   closeReasoningContent();
                 }
-                appendCumulative(delta);
+                // Once diffusing, every text (the closing delta.content too) is the whole reply so far.
+                if (
+                  typeof diffusionReplace === "string" ||
+                  diffusion.active
+                ) {
+                  rewroteText = replaceDiffusionSnapshot(delta);
+                } else {
+                  appendCumulative(delta);
+                }
               }
               streamedChars += reasoning.length + delta.length;
               producedReplyText = true;
@@ -8623,7 +8663,8 @@ export function createOpenAIStreamAdapter(
               if (
                 !replayStateChanged &&
                 (assistantContent.length === 0 ||
-                  cumulativeText.length === textLenBeforeChunk)
+                  (cumulativeText.length === textLenBeforeChunk &&
+                    !rewroteText))
               ) {
                 continue;
               }
